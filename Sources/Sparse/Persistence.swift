@@ -1,30 +1,32 @@
 import Foundation
 
 enum PersistenceError: Error {
-  case invalidFilename(message: String)
+  case invalidFileName(message: String)
   case serializationHooks(message: String)
 }
 
 struct Persistence {
-  let filename: String?
-  let inMemoryOnly: Bool
-  let corruptAlertThreshold: Float
+  let storage: Storage
+  let fileName: String
+  let inMemory: Bool
+  let corruptionThreshold: Float
   let beforeDeserialization: (() -> Void)?
   let afterSerialization: (() -> Void)?
   
   init(
-    filename: String?,
-    inMemoryOnly: Bool,
-    corruptAlertThreshold: Float,
+    fileName: String,
+    inMemory: Bool,
+    corruptionThreshold: Float,
     beforeDeserialization: (() -> Void)?,
-    afterSerialization: (() -> Void)?) throws {
+    afterSerialization: (() -> Void)?
+  ) throws {
+    self.storage = Storage()
+    self.fileName = fileName
+    self.inMemory = inMemory
+    self.corruptionThreshold = corruptionThreshold
     
-    self.filename = filename
-    self.inMemoryOnly = inMemoryOnly
-    self.corruptAlertThreshold = corruptAlertThreshold
-    
-    if !self.inMemoryOnly && filename != nil && filename?.last == "~" {
-      throw PersistenceError.invalidFilename(message: "The datafile name can't end with a ~, which is reserved for crash safe backup files")
+    if !self.inMemory && fileName.last == "~" {
+      throw PersistenceError.invalidFileName(message: "The datafile name can't end with a ~, which is reserved for crash safe backup files")
     }
     
     if beforeDeserialization != nil && afterSerialization == nil {
@@ -43,9 +45,15 @@ struct Persistence {
     }
   }
   
-  /// Check if a directory exists and create it on the fly if it is not the case
-  func ensureDirectoryExists(directory: String, completion: (Result<(), Error>)) {
-    // TODO: Impl
+  /// Loads the collection data from the datafile, and
+  /// trigger the execution of buffered commands if any
+  func loadCollection() {
+    if self.inMemory { return }
+    
+    let _ = self.storage.ensureFileIntegrity(fileName: self.fileName)
+    if let data = try? self.storage.read(fileName: self.fileName) {
+      self.parseRawData(data)
+    }
   }
   
   func persistCachedDatastore(completion: (Result<(), Error>)) {
@@ -68,11 +76,9 @@ struct Persistence {
     // TODO: Impl
   }
   
-  func treatRawData() {
-    // TODO: Impl
-  }
-  
-  func loadDatabase() {
-    // TODO: Impl
+  func parseRawData(_ raw: String) {
+    let _ = raw.split(separator: "\n").map {
+      print($0)
+    }
   }
 }
